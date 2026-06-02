@@ -99,10 +99,57 @@ $txtClientID.Text = "14d82eec-204b-4c2f-b7e8-296a70dab67e"
 
 $chkAutoUpload = New-Object System.Windows.Forms.CheckBox
 $chkAutoUpload.Text = "Auto-Upload to Intune via MS Graph"
-$chkAutoUpload.Location = New-Object System.Drawing.Point(20, 280)
+$chkAutoUpload.Location = New-Object System.Drawing.Point(20, 260)
 $chkAutoUpload.Size = New-Object System.Drawing.Size(440, 20)
 $chkAutoUpload.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
 $configForm.Controls.Add($chkAutoUpload)
+
+$lblModuleStatus = New-Object System.Windows.Forms.Label
+$lblModuleStatus.Location = New-Object System.Drawing.Point(20, 290)
+$lblModuleStatus.Size = New-Object System.Drawing.Size(260, 20)
+$lblModuleStatus.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+if (Get-Module -ListAvailable -Name IntuneWin32App) {
+    $lblModuleStatus.Text = "IntuneWin32App Module: Installed"
+    $lblModuleStatus.ForeColor = [System.Drawing.Color]::LightGreen
+} else {
+    $lblModuleStatus.Text = "IntuneWin32App Module: Not Installed"
+    $lblModuleStatus.ForeColor = [System.Drawing.Color]::LightCoral
+}
+$configForm.Controls.Add($lblModuleStatus)
+
+$btnInstallModule = New-Object System.Windows.Forms.Button
+$btnInstallModule.Text = "Install Module"
+$btnInstallModule.Location = New-Object System.Drawing.Point(290, 285)
+$btnInstallModule.Size = New-Object System.Drawing.Size(100, 25)
+$btnInstallModule.BackColor = [System.Drawing.Color]::LightGray
+$btnInstallModule.ForeColor = [System.Drawing.Color]::Black
+$btnInstallModule.add_Click({
+    $btnInstallModule.Enabled = $false
+    $lblModuleStatus.Text = "Installing..."
+    $lblModuleStatus.ForeColor = [System.Drawing.Color]::Yellow
+    [System.Windows.Forms.Application]::DoEvents()
+
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted -ErrorAction SilentlyContinue
+        Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser -ErrorAction SilentlyContinue
+        [System.Windows.Forms.Application]::DoEvents()
+
+        Install-Module -Name IntuneWin32App -Force -AcceptLicense -AllowClobber -Scope CurrentUser -ErrorAction Stop
+
+        $lblModuleStatus.Text = "IntuneWin32App Module: Installed"
+        $lblModuleStatus.ForeColor = [System.Drawing.Color]::LightGreen
+        [System.Windows.Forms.MessageBox]::Show("Successfully installed IntuneWin32App.", "Success", 0, 64)
+    } catch {
+        $lblModuleStatus.Text = "IntuneWin32App Module: Not Installed"
+        $lblModuleStatus.ForeColor = [System.Drawing.Color]::LightCoral
+        [System.Windows.Forms.MessageBox]::Show("Failed to install IntuneWin32App. Please install it manually.`n`nError: $_", "Error", 0, 16)
+    } finally {
+        $btnInstallModule.Enabled = $true
+        [System.Windows.Forms.Application]::DoEvents()
+    }
+})
+$configForm.Controls.Add($btnInstallModule)
 
 $btnInit = New-Object System.Windows.Forms.Button
 $btnInit.Text = "Initialize Connection"
@@ -120,9 +167,15 @@ $btnInit.add_Click({
         [System.Windows.Forms.MessageBox]::Show("Please fill out Site Code, Output Directory, and IntuneWinAppUtil path.", "Validation Error", 0, 16)
         return
     }
-    if ($chkAutoUpload.Checked -and ([string]::IsNullOrWhiteSpace($txtTenantID.Text) -or [string]::IsNullOrWhiteSpace($txtClientID.Text))) {
-        [System.Windows.Forms.MessageBox]::Show("Please provide Tenant ID and Client ID for auto-upload.", "Validation Error", 0, 16)
-        return
+    if ($chkAutoUpload.Checked) {
+        if ([string]::IsNullOrWhiteSpace($txtTenantID.Text) -or [string]::IsNullOrWhiteSpace($txtClientID.Text)) {
+            [System.Windows.Forms.MessageBox]::Show("Please provide Tenant ID and Client ID for auto-upload.", "Validation Error", 0, 16)
+            return
+        }
+        if (-not (Get-Module -ListAvailable -Name IntuneWin32App)) {
+            [System.Windows.Forms.MessageBox]::Show("IntuneWin32App module is not installed. Please install it first using the 'Install Module' button.", "Module Missing", 0, 48)
+            return
+        }
     }
 
     $script:SiteCode = $txtSiteCode.Text
@@ -131,48 +184,14 @@ $btnInit.add_Click({
     $script:TenantID = $txtTenantID.Text
     $script:ClientID = $txtClientID.Text
     $script:AutoUpload = $chkAutoUpload.Checked
-    $lblStatusPrereq.Text = "Ensuring IntuneWin32App module is available..."
-    [System.Windows.Forms.Application]::DoEvents()
 
-    if (-not (Get-Module -ListAvailable -Name IntuneWin32App)) {
-        $lblStatusPrereq.Text = "Checking PSGallery..."
-        [System.Windows.Forms.Application]::DoEvents()
-
-        try {
-            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-            Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted -ErrorAction SilentlyContinue
-            Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser -ErrorAction SilentlyContinue
-
-            $lblStatusPrereq.Text = "Downloading Module..."
-            [System.Windows.Forms.Application]::DoEvents()
-
-            Install-Module -Name IntuneWin32App -Force -AcceptLicense -AllowClobber -Scope CurrentUser -ErrorAction Stop
-
-            $lblStatusPrereq.Text = "Successfully installed IntuneWin32App."
-            [System.Windows.Forms.Application]::DoEvents()
-        } catch {
-            [System.Windows.Forms.MessageBox]::Show("Failed to install IntuneWin32App. Please install it manually: Install-Module IntuneWin32App", "Error", 0, 16)
-            $lblStatusPrereq.Text = "Installation failed."
-            return
-        }
-    }
     Import-Module IntuneWin32App -ErrorAction SilentlyContinue
-    $lblStatusPrereq.Text = "Ready."
-    [System.Windows.Forms.Application]::DoEvents()
 
     $script:ConfigValid = $true
-
     $configForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
     $configForm.Close()
 })
 $configForm.Controls.Add($btnInit)
-
-$lblStatusPrereq = New-Object System.Windows.Forms.Label
-$lblStatusPrereq.Location = New-Object System.Drawing.Point(20, 390)
-$lblStatusPrereq.Size = New-Object System.Drawing.Size(440, 40)
-$lblStatusPrereq.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Italic)
-$lblStatusPrereq.Text = ""
-$configForm.Controls.Add($lblStatusPrereq)
 
 $configForm.ShowDialog() | Out-Null
 if (-not $script:ConfigValid) { exit }
@@ -658,11 +677,24 @@ foreach ($selApp in $selectedApps) {
         continue
     }
 
-    $SetupFile = "Quick.ps1"
-    if (-not (Test-Path (Join-Path $ContentLocation $SetupFile))) {
+    $SetupFile = ""
+    $matches = [regex]::Matches($installCmd, '(?i)([^\\/\"''\*?<>|]+?\.(?:exe|msi|ps1|bat|cmd|vbs))')
+    foreach ($m in $matches) {
+        $candidate = $m.Groups[1].Value.Trim()
+        if (Test-Path (Join-Path $ContentLocation $candidate)) {
+            $SetupFile = $candidate
+            break
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($SetupFile)) {
         $FallbackFile = Get-ChildItem -Path $ContentLocation -Include *.msi, *.exe -Recurse | Select-Object -First 1
         if ($FallbackFile) { $SetupFile = $FallbackFile.Name }
-        else { $SetupFile = (Get-ChildItem -Path $ContentLocation | Select-Object -First 1).Name }
+        else {
+            $firstFile = Get-ChildItem -Path $ContentLocation -File | Select-Object -First 1
+            if ($firstFile) { $SetupFile = $firstFile.Name }
+            else { $SetupFile = "Quick.ps1" }
+        }
     }
 
     $lblStatus.Text = "Packaging .intunewin (Window will freeze temporarily during compile)..."
