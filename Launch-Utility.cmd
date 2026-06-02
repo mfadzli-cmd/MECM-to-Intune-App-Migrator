@@ -1,8 +1,7 @@
 @echo off
 fltmc >nul 2>&1
 if "%errorLevel%" NEQ "0" (
-    echo Requesting administrative privileges...
-    powershell -Command "Start-Process '%~dpnx0' -Verb RunAs"
+    powershell -WindowStyle Hidden -Command "Start-Process '%~dpnx0' -Verb RunAs -WindowStyle Hidden"
     exit /b
 )
 
