@@ -13,24 +13,6 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 # ==============================================================================
-# 1. DEPENDENCY MANAGEMENT
-# ==============================================================================
-Write-Host "Ensuring IntuneWin32App module is available..." -ForegroundColor Cyan
-if (-not (Get-Module -ListAvailable -Name IntuneWin32App)) {
-    Write-Host "IntuneWin32App module not found. Installing silently from PSGallery..." -ForegroundColor Yellow
-    try {
-        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser -ErrorAction SilentlyContinue
-        Install-Module -Name IntuneWin32App -Force -AcceptLicense -AllowClobber -ErrorAction Stop
-        Write-Host "Successfully installed IntuneWin32App." -ForegroundColor Green
-    } catch {
-        Write-Host "[ERROR] Failed to install IntuneWin32App. Please install it manually: Install-Module IntuneWin32App" -ForegroundColor Red
-        exit
-    }
-}
-Import-Module IntuneWin32App
-
-# ==============================================================================
 # 2. CONFIGURATION GUI REFACTOR
 # ==============================================================================
 [System.Windows.Forms.Application]::EnableVisualStyles()
@@ -154,6 +136,44 @@ $btnInit.add_Click({
     $configForm.Close()
 })
 $configForm.Controls.Add($btnInit)
+
+$lblStatusPrereq = New-Object System.Windows.Forms.Label
+$lblStatusPrereq.Location = New-Object System.Drawing.Point(20, 390)
+$lblStatusPrereq.Size = New-Object System.Drawing.Size(440, 40)
+$lblStatusPrereq.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Italic)
+$lblStatusPrereq.Text = ""
+$configForm.Controls.Add($lblStatusPrereq)
+
+$configForm.add_Shown({
+    $lblStatusPrereq.Text = "Ensuring IntuneWin32App module is available..."
+    [System.Windows.Forms.Application]::DoEvents()
+
+    if (-not (Get-Module -ListAvailable -Name IntuneWin32App)) {
+        $lblStatusPrereq.Text = "Checking PSGallery..."
+        [System.Windows.Forms.Application]::DoEvents()
+
+        try {
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+            Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted -ErrorAction SilentlyContinue
+            Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser -ErrorAction SilentlyContinue
+
+            $lblStatusPrereq.Text = "Downloading Module..."
+            [System.Windows.Forms.Application]::DoEvents()
+
+            Install-Module -Name IntuneWin32App -Force -AcceptLicense -AllowClobber -Scope CurrentUser -ErrorAction Stop
+
+            $lblStatusPrereq.Text = "Successfully installed IntuneWin32App."
+            [System.Windows.Forms.Application]::DoEvents()
+        } catch {
+            [System.Windows.Forms.MessageBox]::Show("Failed to install IntuneWin32App. Please install it manually: Install-Module IntuneWin32App", "Error", 0, 16)
+            $configForm.Close()
+            exit
+        }
+    }
+    Import-Module IntuneWin32App -ErrorAction SilentlyContinue
+    $lblStatusPrereq.Text = "Ready."
+    [System.Windows.Forms.Application]::DoEvents()
+})
 
 $configForm.ShowDialog() | Out-Null
 if (-not $script:ConfigValid) { exit }
@@ -292,21 +312,10 @@ if ($dialogResult -ne [System.Windows.Forms.DialogResult]::OK -or $script:chosen
 # ==============================================================================
 $selectedApps = $allApps | Where-Object { $_.LocalizedDisplayName -in $script:chosenAppNames }
 
-if ($AutoUpload) {
-    Write-Host "Connecting to Intune via MS Graph..." -ForegroundColor Cyan
-    try {
-        Connect-MSIntuneGraph -TenantId $TenantID -ClientId $ClientID
-        Write-Host "Successfully connected to Intune Graph." -ForegroundColor Green
-    } catch {
-        Write-Host "[ERROR] Failed to connect to Intune Graph: $_" -ForegroundColor Red
-        exit
-    }
-}
-
 # --- Build the Live Progress Window ---
 $formProgress = New-Object System.Windows.Forms.Form
 $formProgress.Text = "SCCM Extractor & Packager"
-$formProgress.Size = New-Object System.Drawing.Size(550, 180)
+$formProgress.Size = New-Object System.Drawing.Size(550, 400)
 $formProgress.StartPosition = "CenterScreen"
 $formProgress.FormBorderStyle = 'FixedDialog'
 $formProgress.ControlBox = $false # Hides the 'X' so users don't close it mid-run
@@ -333,9 +342,39 @@ $pb.Style = 'Continuous'
 $pb.Maximum = $selectedApps.Count
 $pb.Value = 0
 
-$formProgress.Controls.AddRange(@($lblApp, $lblStatus, $pb))
+$txtLog = New-Object System.Windows.Forms.TextBox
+$txtLog.Location = New-Object System.Drawing.Point(20, 115)
+$txtLog.Size = New-Object System.Drawing.Size(490, 230)
+$txtLog.Multiline = $true
+$txtLog.ReadOnly = $true
+$txtLog.ScrollBars = 'Vertical'
+$txtLog.BackColor = [System.Drawing.Color]::Black
+$txtLog.ForeColor = [System.Drawing.Color]::LightGray
+$txtLog.Font = New-Object System.Drawing.Font("Consolas", 8, [System.Drawing.FontStyle]::Regular)
+
+$formProgress.Controls.AddRange(@($lblApp, $lblStatus, $pb, $txtLog))
+
+function Write-LogUI ($Message) {
+    $Timestamp = Get-Date -Format 'HH:mm:ss'
+    $txtLog.AppendText("[$Timestamp] $Message`r`n")
+    $txtLog.SelectionStart = $txtLog.TextLength
+    $txtLog.ScrollToCaret()
+    [System.Windows.Forms.Application]::DoEvents()
+}
+
 $formProgress.Show() | Out-Null
 [System.Windows.Forms.Application]::DoEvents() # Force UI to paint
+
+if ($AutoUpload) {
+    Write-LogUI "Connecting to Intune via MS Graph..."
+    try {
+        Connect-MSIntuneGraph -TenantId $TenantID -ClientId $ClientID
+        Write-LogUI "Successfully connected to Intune Graph."
+    } catch {
+        Write-LogUI "[ERROR] Failed to connect to Intune Graph: $_"
+        exit
+    }
+}
 
 # --- Begin Loop ---
 Set-Location $siteDrive
@@ -347,14 +386,14 @@ foreach ($selApp in $selectedApps) {
     $lblStatus.Text = "Querying SCCM Deployment Types..."
     [System.Windows.Forms.Application]::DoEvents()
 
-    Write-Host "---------------------------------------------------" -ForegroundColor Cyan
-    Write-Host "Processing: $($selApp.LocalizedDisplayName)" -ForegroundColor Green
+    Write-LogUI "---------------------------------------------------"
+    Write-LogUI "Processing: $($selApp.LocalizedDisplayName)"
 
     $safeAppName = $selApp.LocalizedDisplayName -replace '[\\/:\*\?"<>\|]', '_'
     $deploymentTypes = Get-CMDeploymentType -ApplicationName $selApp.LocalizedDisplayName
 
     if (-not $deploymentTypes) {
-        Write-Host " -> No Deployment Types found. Skipping." -ForegroundColor DarkGray
+        Write-LogUI " -> No Deployment Types found. Skipping."
         $TotalProcessed++; $pb.Value = $TotalProcessed; [System.Windows.Forms.Application]::DoEvents()
         continue
     }
@@ -381,7 +420,7 @@ foreach ($selApp in $selectedApps) {
         } catch { }
     }
     if ([string]::IsNullOrWhiteSpace($rawXmlText)) {
-        Write-Host " -> CRITICAL ERROR: SDMPackageXML is empty. Cannot extract app." -ForegroundColor Red
+        Write-LogUI " -> CRITICAL ERROR: SDMPackageXML is empty. Cannot extract app."
         $TotalProcessed++; $pb.Value = $TotalProcessed; [System.Windows.Forms.Application]::DoEvents()
         continue
     }
@@ -477,13 +516,13 @@ foreach ($selApp in $selectedApps) {
     }
 
     if ([string]::IsNullOrWhiteSpace($ContentLocation)) {
-        Write-Host " -> ERROR: Could not find any Source Path in SCCM for this app. Skipping packaging." -ForegroundColor Red
+        Write-LogUI " -> ERROR: Could not find any Source Path in SCCM for this app. Skipping packaging."
         $TotalProcessed++; $pb.Value = $TotalProcessed; [System.Windows.Forms.Application]::DoEvents()
         continue
     }
 
     $ContentLocation = $ContentLocation.Trim().TrimEnd('\')
-    Write-Host " -> Source located: $ContentLocation" -ForegroundColor Yellow
+    Write-LogUI " -> Source located: $ContentLocation"
 
     # ---------------------------------------------------------
     # EXTRACT COMMANDS & DETECTION RULES
@@ -614,7 +653,7 @@ foreach ($selApp in $selectedApps) {
     Set-Location "C:"
 
     if (-not (Test-Path $ContentLocation)) {
-        Write-Host " -> ERROR: Path found, but inaccessible. Skipping." -ForegroundColor Red
+        Write-LogUI " -> ERROR: Path found, but inaccessible. Skipping."
         Set-Location $siteDrive
         $TotalProcessed++; $pb.Value = $TotalProcessed; [System.Windows.Forms.Application]::DoEvents()
         continue
@@ -630,7 +669,7 @@ foreach ($selApp in $selectedApps) {
     $lblStatus.Text = "Packaging .intunewin (Window will freeze temporarily during compile)..."
     [System.Windows.Forms.Application]::DoEvents()
 
-    Write-Host " -> Generating .intunewin..." -ForegroundColor Yellow
+    Write-LogUI " -> Generating .intunewin..."
     $Process = Start-Process -FilePath $IntuneWinUtilPath -ArgumentList "-c `"$ContentLocation`" -s `"$SetupFile`" -o `"$OutputDirectory`" -q" -Wait -NoNewWindow -PassThru
 
     $GeneratedFile = ""
@@ -639,9 +678,9 @@ foreach ($selApp in $selectedApps) {
         $GeneratedFile = Join-Path $OutputDirectory $DefaultOutputName
         if (Test-Path $GeneratedFile) { Rename-Item -Path $GeneratedFile -NewName "$safeAppName.intunewin" -Force }
         $GeneratedFile = Join-Path $OutputDirectory "$safeAppName.intunewin"
-        Write-Host " -> Packaging Complete: $safeAppName.intunewin" -ForegroundColor Green
+        Write-LogUI " -> Packaging Complete: $safeAppName.intunewin"
     } else {
-        Write-Host " -> Packaging Failed! Exit Code: $($Process.ExitCode)" -ForegroundColor Red
+        Write-LogUI " -> Packaging Failed! Exit Code: $($Process.ExitCode)"
     }
 
     # ---------------------------------------------------------
@@ -667,7 +706,7 @@ foreach ($selApp in $selectedApps) {
 
     $MetadataFile = Join-Path $OutputDirectory "$safeAppName`_Metadata.json"
     $MetadataObj | ConvertTo-Json -Depth 10 | Set-Content -Path $MetadataFile
-    Write-Host " -> Metadata Saved: $safeAppName`_Metadata.json" -ForegroundColor Green
+    Write-LogUI " -> Metadata Saved: $safeAppName`_Metadata.json"
 
     # ---------------------------------------------------------
     # AUTO UPLOAD TO INTUNE VIA MS GRAPH
@@ -676,7 +715,7 @@ foreach ($selApp in $selectedApps) {
         $lblStatus.Text = "Uploading directly to Intune via Graph..."
         [System.Windows.Forms.Application]::DoEvents()
 
-        Write-Host " -> Uploading $safeAppName to Intune..." -ForegroundColor Yellow
+        Write-LogUI " -> Uploading $safeAppName to Intune..."
         try {
             # Map metadata and upload
             Add-IntuneWin32App -FilePath $GeneratedFile `
@@ -688,9 +727,9 @@ foreach ($selApp in $selectedApps) {
                                -InformationUrl "https://example.com" `
                                -ErrorAction Stop
 
-            Write-Host " -> Upload Complete!" -ForegroundColor Green
+            Write-LogUI " -> Upload Complete!"
         } catch {
-            Write-Host " -> [ERROR] Upload failed: $_" -ForegroundColor Red
+            Write-LogUI " -> [ERROR] Upload failed: $_"
         }
     }
 
