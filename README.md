@@ -14,13 +14,15 @@ An automated, GUI-driven enterprise utility that connects to local MECM/SCCM env
 ## Prerequisites
 
 1. **SCCM Admin Console module:** The script expects the SCCM console to be installed on the machine running the script to use `ConfigurationManager.psd1`.
-2. **IntuneWinAppUtil.exe:** The Microsoft Win32 Content Prep Tool executable must be downloaded and its location provided in the configuration GUI.
+2. **IntuneWinAppUtil.exe:** The Microsoft Win32 Content Prep Tool executable is bundled directly within the repository for immediate plug-and-play usage.
 3. **IntuneWin32App module:** The script automatically checks and installs this module if missing, but requires an active internet connection to download from PSGallery.
 
 ## Usage
 
+Users can simply double-click `Launch-Utility.cmd`, and the tool will automatically prompt for the necessary Administrator permissions via UAC.
+
 ### Offline Extraction
-1. Launch `MECM-to-Intune-App-Migrator.ps1` in PowerShell.
+1. Double-click `Launch-Utility.cmd` to run the tool.
 2. In the Configuration GUI, verify your **SCCM Site Code**.
 3. Browse for the **Output Directory** where you want the packaged apps to be saved.
 4. Browse for the **IntuneWinAppUtil.exe Location**.
@@ -30,7 +32,7 @@ An automated, GUI-driven enterprise utility that connects to local MECM/SCCM env
 8. The script will generate `.intunewin` files and `.json` metadata payloads in the output directory.
 
 ### Live Cloud Uploading
-1. Launch `MECM-to-Intune-App-Migrator.ps1` in PowerShell.
+1. Double-click `Launch-Utility.cmd` to run the tool.
 2. Fill out the **SCCM Site Code**, **Output Directory**, and **IntuneWinAppUtil.exe Location**.
 3. Provide your **Entra Tenant ID** and **App Registration Client ID** (ensure the App Registration has appropriate Graph API permissions for Intune app deployment).
 4. Check the **Auto-Upload to Intune via MS Graph** box.

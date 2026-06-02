@@ -19,7 +19,9 @@ Write-Host "Ensuring IntuneWin32App module is available..." -ForegroundColor Cya
 if (-not (Get-Module -ListAvailable -Name IntuneWin32App)) {
     Write-Host "IntuneWin32App module not found. Installing silently from PSGallery..." -ForegroundColor Yellow
     try {
-        Install-Module -Name IntuneWin32App -Force -AcceptLicense -Scope CurrentUser -ErrorAction Stop
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser -ErrorAction SilentlyContinue
+        Install-Module -Name IntuneWin32App -Force -AcceptLicense -AllowClobber -ErrorAction Stop
         Write-Host "Successfully installed IntuneWin32App." -ForegroundColor Green
     } catch {
         Write-Host "[ERROR] Failed to install IntuneWin32App. Please install it manually: Install-Module IntuneWin32App" -ForegroundColor Red
