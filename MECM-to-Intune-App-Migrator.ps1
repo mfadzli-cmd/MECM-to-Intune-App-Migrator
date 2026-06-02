@@ -93,8 +93,9 @@ $configForm.Controls.Add($btnBrowseUtil)
 Add-Label "Entra Tenant ID:" 170
 $txtTenantID = Add-TextBox 170
 
-Add-Label "App Registration Client ID:" 220
+Add-Label "App Registration Client ID (Default: Native MS Graph CLI):" 220
 $txtClientID = Add-TextBox 220
+$txtClientID.Text = "14d82eec-204b-4c2f-b7e8-296a70dab67e"
 
 $chkAutoUpload = New-Object System.Windows.Forms.CheckBox
 $chkAutoUpload.Text = "Auto-Upload to Intune via MS Graph"
@@ -130,21 +131,6 @@ $btnInit.add_Click({
     $script:TenantID = $txtTenantID.Text
     $script:ClientID = $txtClientID.Text
     $script:AutoUpload = $chkAutoUpload.Checked
-    $script:ConfigValid = $true
-
-    $configForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
-    $configForm.Close()
-})
-$configForm.Controls.Add($btnInit)
-
-$lblStatusPrereq = New-Object System.Windows.Forms.Label
-$lblStatusPrereq.Location = New-Object System.Drawing.Point(20, 390)
-$lblStatusPrereq.Size = New-Object System.Drawing.Size(440, 40)
-$lblStatusPrereq.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Italic)
-$lblStatusPrereq.Text = ""
-$configForm.Controls.Add($lblStatusPrereq)
-
-$configForm.add_Shown({
     $lblStatusPrereq.Text = "Ensuring IntuneWin32App module is available..."
     [System.Windows.Forms.Application]::DoEvents()
 
@@ -166,14 +152,27 @@ $configForm.add_Shown({
             [System.Windows.Forms.Application]::DoEvents()
         } catch {
             [System.Windows.Forms.MessageBox]::Show("Failed to install IntuneWin32App. Please install it manually: Install-Module IntuneWin32App", "Error", 0, 16)
-            $configForm.Close()
-            exit
+            $lblStatusPrereq.Text = "Installation failed."
+            return
         }
     }
     Import-Module IntuneWin32App -ErrorAction SilentlyContinue
     $lblStatusPrereq.Text = "Ready."
     [System.Windows.Forms.Application]::DoEvents()
+
+    $script:ConfigValid = $true
+
+    $configForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
+    $configForm.Close()
 })
+$configForm.Controls.Add($btnInit)
+
+$lblStatusPrereq = New-Object System.Windows.Forms.Label
+$lblStatusPrereq.Location = New-Object System.Drawing.Point(20, 390)
+$lblStatusPrereq.Size = New-Object System.Drawing.Size(440, 40)
+$lblStatusPrereq.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Italic)
+$lblStatusPrereq.Text = ""
+$configForm.Controls.Add($lblStatusPrereq)
 
 $configForm.ShowDialog() | Out-Null
 if (-not $script:ConfigValid) { exit }
