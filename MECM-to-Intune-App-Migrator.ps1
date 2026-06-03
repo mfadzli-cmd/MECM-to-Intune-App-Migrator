@@ -34,6 +34,7 @@ function Add-Label ($Text, $Y) {
     $lbl.AutoSize = $true
     $lbl.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
     $configForm.Controls.Add($lbl)
+    return $lbl
 }
 
 function Add-TextBox ($Y, $Width = 440) {
@@ -57,7 +58,7 @@ try {
     }
 } catch { }
 
-Add-Label "Output Directory:" 70
+$lblOutputDir = Add-Label "Output Directory:" 70
 $txtOutputDir = Add-TextBox 70 350
 $btnBrowseOut = New-Object System.Windows.Forms.Button
 $btnBrowseOut.Text = "Browse"
@@ -90,10 +91,10 @@ $btnBrowseUtil.add_Click({
 })
 $configForm.Controls.Add($btnBrowseUtil)
 
-Add-Label "Entra Tenant ID:" 170
+$lblTenantID = Add-Label "Entra Tenant ID:" 170
 $txtTenantID = Add-TextBox 170
 
-Add-Label "App Registration Client ID (Default: Native MS Graph CLI):" 220
+$lblClientID = Add-Label "App Registration Client ID (Default: Native MS Graph CLI):" 220
 $txtClientID = Add-TextBox 220
 $txtClientID.Text = "14d82eec-204b-4c2f-b7e8-296a70dab67e"
 
@@ -135,7 +136,7 @@ $btnInstallModule.add_Click({
         Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser -ErrorAction SilentlyContinue
         [System.Windows.Forms.Application]::DoEvents()
 
-        Install-Module -Name IntuneWin32App -Force -AcceptLicense -AllowClobber -Scope CurrentUser -ErrorAction Stop
+        Install-Module -Name IntuneWin32App -Force -AllowClobber -Scope CurrentUser -ErrorAction Stop
 
         $lblModuleStatus.Text = "IntuneWin32App Module: Installed"
         $lblModuleStatus.ForeColor = [System.Drawing.Color]::LightGreen
@@ -151,6 +152,40 @@ $btnInstallModule.add_Click({
 })
 $configForm.Controls.Add($btnInstallModule)
 
+# Dynamic UI default visibility
+$lblTenantID.Visible = $false
+$txtTenantID.Visible = $false
+$lblClientID.Visible = $false
+$txtClientID.Visible = $false
+$lblModuleStatus.Visible = $false
+$btnInstallModule.Visible = $false
+
+$chkAutoUpload.add_CheckedChanged({
+    if ($chkAutoUpload.Checked) {
+        $lblTenantID.Visible = $true
+        $txtTenantID.Visible = $true
+        $lblClientID.Visible = $true
+        $txtClientID.Visible = $true
+        $lblModuleStatus.Visible = $true
+        $btnInstallModule.Visible = $true
+
+        $lblOutputDir.Visible = $false
+        $txtOutputDir.Visible = $false
+        $btnBrowseOut.Visible = $false
+    } else {
+        $lblTenantID.Visible = $false
+        $txtTenantID.Visible = $false
+        $lblClientID.Visible = $false
+        $txtClientID.Visible = $false
+        $lblModuleStatus.Visible = $false
+        $btnInstallModule.Visible = $false
+
+        $lblOutputDir.Visible = $true
+        $txtOutputDir.Visible = $true
+        $btnBrowseOut.Visible = $true
+    }
+})
+
 $btnInit = New-Object System.Windows.Forms.Button
 $btnInit.Text = "Initialize Connection"
 $btnInit.Location = New-Object System.Drawing.Point(20, 330)
@@ -162,9 +197,8 @@ $btnInit.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.F
 $script:ConfigValid = $false
 $btnInit.add_Click({
     if ([string]::IsNullOrWhiteSpace($txtSiteCode.Text) -or
-        [string]::IsNullOrWhiteSpace($txtOutputDir.Text) -or
         [string]::IsNullOrWhiteSpace($txtIntuneUtil.Text)) {
-        [System.Windows.Forms.MessageBox]::Show("Please fill out Site Code, Output Directory, and IntuneWinAppUtil path.", "Validation Error", 0, 16)
+        [System.Windows.Forms.MessageBox]::Show("Please fill out Site Code and IntuneWinAppUtil path.", "Validation Error", 0, 16)
         return
     }
     if ($chkAutoUpload.Checked) {
@@ -174,6 +208,11 @@ $btnInit.add_Click({
         }
         if (-not (Get-Module -ListAvailable -Name IntuneWin32App)) {
             [System.Windows.Forms.MessageBox]::Show("IntuneWin32App module is not installed. Please install it first using the 'Install Module' button.", "Module Missing", 0, 48)
+            return
+        }
+    } else {
+        if ([string]::IsNullOrWhiteSpace($txtOutputDir.Text)) {
+            [System.Windows.Forms.MessageBox]::Show("Please fill out Output Directory.", "Validation Error", 0, 16)
             return
         }
     }
@@ -670,6 +709,13 @@ foreach ($selApp in $selectedApps) {
     # ---------------------------------------------------------
     Set-Location "C:"
 
+    if ($AutoUpload) {
+        $OutputDirectory = Join-Path $PSScriptRoot "Temp_Intune_Migration"
+        if (-not (Test-Path $OutputDirectory)) {
+            New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
+        }
+    }
+
     if (-not (Test-Path $ContentLocation)) {
         Write-LogUI " -> ERROR: Path found, but inaccessible. Skipping."
         Set-Location $siteDrive
@@ -762,6 +808,10 @@ foreach ($selApp in $selectedApps) {
         } catch {
             Write-LogUI " -> [ERROR] Upload failed: $_"
         }
+    }
+
+    if ($AutoUpload -and (Test-Path $OutputDirectory)) {
+        Remove-Item -Path $OutputDirectory -Recurse -Force -ErrorAction SilentlyContinue
     }
 
     $TotalProcessed++
