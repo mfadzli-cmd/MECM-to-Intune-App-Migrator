@@ -99,9 +99,13 @@ $btnBrowseOut.Size = New-Object System.Drawing.Size(80, 22)
 $btnBrowseOut.BackColor = [System.Drawing.Color]::LightGray
 $btnBrowseOut.ForeColor = [System.Drawing.Color]::Black
 $btnBrowseOut.add_Click({
-    $fbd = New-Object System.Windows.Forms.FolderBrowserDialog
-    if ($fbd.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-        $txtOutputDir.Text = $fbd.SelectedPath
+    $ofd = New-Object System.Windows.Forms.OpenFileDialog
+    $ofd.ValidateNames = $false
+    $ofd.CheckFileExists = $false
+    $ofd.CheckPathExists = $true
+    $ofd.FileName = "Folder Selection"
+    if ($ofd.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+        $txtOutputDir.Text = Split-Path $ofd.FileName -Parent
     }
 })
 $sccmPanel.Controls.Add($btnBrowseOut)
@@ -292,6 +296,8 @@ $btnInit.add_Click({
     $configForm.Close()
 })
 $configForm.Controls.Add($btnInit)
+
+Update-UILayout
 
 $configForm.ShowDialog() | Out-Null
 
