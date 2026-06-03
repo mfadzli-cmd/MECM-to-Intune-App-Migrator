@@ -188,7 +188,7 @@ $intunePanel.Size = New-Object System.Drawing.Size(480, 130)
 $configForm.Controls.Add($intunePanel)
 
 $lblTenantID = Add-Label "Entra Tenant ID [?]:" 0 $intunePanel
-$ToolTip.SetToolTip($lblTenantID, 'Your primary Azure AD / Entra domain (e.g., contoso.onmicrosoft.com).')
+$ToolTip.SetToolTip($lblTenantID, 'Your Entra Tenant ID (e.g., 12345678-1234-1234-1234-1234567890ab).')
 $txtTenantID = Add-TextBox 0 440 $intunePanel
 
 $lblClientID = Add-Label "App Registration Client ID (Default: Native MS Graph CLI) [?]:" 50 $intunePanel
