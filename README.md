@@ -5,6 +5,7 @@ An automated, GUI-driven enterprise utility that connects to local MECM/SCCM env
 ## Features
 
 - **Configuration GUI:** A sleek, slate-grey Windows Forms interface for configuration input. Auto-detects SCCM Site Code.
+- **Dynamic Operation Modes:** The UI automatically resizes based on three versatile modes: Air-gapped Extraction, Auto-Upload, or standalone Upload-Only.
 - **Dependency Management:** Automatically ensures the `IntuneWin32App` module is installed and imported.
 - **Extraction & Packaging:** Extracts SCCM applications, deep-searches metadata, decodes detection methods, and packages using `IntuneWinAppUtil.exe`.
 - **JSON Metadata Engine:** Generates structured `.json` payloads mapping Application WMI data for future reference or migration pipelines.
@@ -21,24 +22,19 @@ An automated, GUI-driven enterprise utility that connects to local MECM/SCCM env
 
 Users can simply double-click `Launch-Utility.cmd`, and the tool will automatically prompt for the necessary Administrator permissions via UAC.
 
-### Offline Extraction
-1. Double-click `Launch-Utility.cmd` to run the tool.
-2. In the Configuration GUI, verify your **SCCM Site Code**.
-3. Browse for the **Output Directory** where you want the packaged apps to be saved.
-4. Browse for the **IntuneWinAppUtil.exe Location**.
-5. Do *not* check "Auto-Upload to Intune via MS Graph".
-6. Click **Initialize Connection**.
-7. Select the applications you wish to extract and package from the secondary GUI.
-8. The script will generate `.intunewin` files and `.json` metadata payloads in the output directory.
+### 3-Step Air-Gapped SCCM Workflow
+For enterprise environments where the SCCM primary site server is completely offline or segmented from the internet, you can use the versatile 3-step workflow:
+1. **Mode 1 (Offline Server):** Run the tool on the offline SCCM server, select **"Extract & Package Locally (Air-gapped)"**, and extract your packages. The script will generate both the `.intunewin` package and a matching `.json` metadata file.
+2. **Transfer:** Move the resulting `.intunewin` and `.json` files to a secure, online administration machine.
+3. **Mode 3 (Online Machine):** Run the tool on the online machine, select **"Upload Existing Package to Intune"**, select the transferred `.intunewin` file, and let the tool automatically read the metadata and upload it to Intune via MS Graph.
 
-### Live Cloud Uploading
-1. Double-click `Launch-Utility.cmd` to run the tool.
-2. Fill out the **SCCM Site Code**, **Output Directory**, and **IntuneWinAppUtil.exe Location**.
-3. Provide your **Entra Tenant ID** and **App Registration Client ID** (ensure the App Registration has appropriate Graph API permissions for Intune app deployment).
-4. Check the **Auto-Upload to Intune via MS Graph** box.
-5. Click **Initialize Connection**.
-6. Select the applications you wish to extract and package.
-7. After packaging, the script will automatically authenticate to Microsoft Graph and upload the `.intunewin` application directly into your Intune tenant, matching the extracted metadata.
+### Live Cloud Uploading (Mode 2)
+For environments where the SCCM server has direct internet and MS Graph access:
+1. Run the tool and select **"Extract & Auto-Upload to Intune"**.
+2. Provide your **Entra Tenant ID** and **App Registration Client ID** (ensure the App Registration has appropriate Graph API permissions for Intune app deployment).
+3. Select the output directory where you want the .intunewin and metadata files saved. Note: For direct uploads, a temporary workspace is utilized.
+4. Select the applications you wish to extract and package.
+5. After packaging, the script will automatically authenticate to Microsoft Graph and upload the `.intunewin` application directly into your Intune tenant, matching the extracted metadata.
 
 ## Notes
 - If running into issues, ensure you are running PowerShell as Administrator.

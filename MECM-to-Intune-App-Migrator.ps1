@@ -27,28 +27,60 @@ $configForm.BackColor = [System.Drawing.Color]::SlateGray
 $configForm.ForeColor = [System.Drawing.Color]::White
 
 # Helper function to add controls
-function Add-Label ($Text, $Y) {
+function Add-Label ($Text, $Y, $ParentControl = $configForm) {
     $lbl = New-Object System.Windows.Forms.Label
     $lbl.Text = $Text
     $lbl.Location = New-Object System.Drawing.Point(20, $Y)
     $lbl.AutoSize = $true
     $lbl.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
-    $configForm.Controls.Add($lbl)
+    $ParentControl.Controls.Add($lbl)
     return $lbl
 }
 
-function Add-TextBox ($Y, $Width = 440) {
+function Add-TextBox ($Y, $Width = 440, $ParentControl = $configForm) {
     $txt = New-Object System.Windows.Forms.TextBox
     $txt.Location = New-Object System.Drawing.Point(20, ($Y + 20))
     $txt.Size = New-Object System.Drawing.Size($Width, 20)
     $txt.BackColor = [System.Drawing.Color]::White
     $txt.ForeColor = [System.Drawing.Color]::Black
-    $configForm.Controls.Add($txt)
+    $ParentControl.Controls.Add($txt)
     return $txt
 }
 
-Add-Label "SCCM Site Code:" 20
-$txtSiteCode = Add-TextBox 20
+
+$modeGroup = New-Object System.Windows.Forms.GroupBox
+$modeGroup.Text = "Operation Mode"
+$modeGroup.Location = New-Object System.Drawing.Point(20, 20)
+$modeGroup.Size = New-Object System.Drawing.Size(440, 100)
+$modeGroup.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$modeGroup.ForeColor = [System.Drawing.Color]::White
+$configForm.Controls.Add($modeGroup)
+
+$rbMode1 = New-Object System.Windows.Forms.RadioButton
+$rbMode1.Text = "Extract & Package Locally (Air-gapped)"
+$rbMode1.Location = New-Object System.Drawing.Point(20, 20)
+$rbMode1.Size = New-Object System.Drawing.Size(400, 20)
+$rbMode1.Checked = $true
+$modeGroup.Controls.Add($rbMode1)
+
+$rbMode2 = New-Object System.Windows.Forms.RadioButton
+$rbMode2.Text = "Extract & Auto-Upload to Intune"
+$rbMode2.Location = New-Object System.Drawing.Point(20, 45)
+$rbMode2.Size = New-Object System.Drawing.Size(400, 20)
+$modeGroup.Controls.Add($rbMode2)
+
+$rbMode3 = New-Object System.Windows.Forms.RadioButton
+$rbMode3.Text = "Upload Existing Package to Intune"
+$rbMode3.Location = New-Object System.Drawing.Point(20, 70)
+$rbMode3.Size = New-Object System.Drawing.Size(400, 20)
+$modeGroup.Controls.Add($rbMode3)
+
+$sccmPanel = New-Object System.Windows.Forms.Panel
+$sccmPanel.Size = New-Object System.Drawing.Size(480, 160)
+$configForm.Controls.Add($sccmPanel)
+
+Add-Label "SCCM Site Code:" 0 $sccmPanel | Out-Null
+$txtSiteCode = Add-TextBox 0 440 $sccmPanel
 
 # Auto-detect SCCM Site Code
 try {
@@ -58,11 +90,11 @@ try {
     }
 } catch { }
 
-$lblOutputDir = Add-Label "Output Directory:" 70
-$txtOutputDir = Add-TextBox 70 350
+$lblOutputDir = Add-Label "Output Directory:" 50 $sccmPanel
+$txtOutputDir = Add-TextBox 50 350 $sccmPanel
 $btnBrowseOut = New-Object System.Windows.Forms.Button
 $btnBrowseOut.Text = "Browse"
-$btnBrowseOut.Location = New-Object System.Drawing.Point(380, 90)
+$btnBrowseOut.Location = New-Object System.Drawing.Point(380, 70)
 $btnBrowseOut.Size = New-Object System.Drawing.Size(80, 22)
 $btnBrowseOut.BackColor = [System.Drawing.Color]::LightGray
 $btnBrowseOut.ForeColor = [System.Drawing.Color]::Black
@@ -72,13 +104,13 @@ $btnBrowseOut.add_Click({
         $txtOutputDir.Text = $fbd.SelectedPath
     }
 })
-$configForm.Controls.Add($btnBrowseOut)
+$sccmPanel.Controls.Add($btnBrowseOut)
 
-Add-Label "IntuneWinAppUtil.exe Location:" 120
-$txtIntuneUtil = Add-TextBox 120 350
+Add-Label "IntuneWinAppUtil.exe Location:" 100 $sccmPanel | Out-Null
+$txtIntuneUtil = Add-TextBox 100 350 $sccmPanel
 $btnBrowseUtil = New-Object System.Windows.Forms.Button
 $btnBrowseUtil.Text = "Browse"
-$btnBrowseUtil.Location = New-Object System.Drawing.Point(380, 140)
+$btnBrowseUtil.Location = New-Object System.Drawing.Point(380, 120)
 $btnBrowseUtil.Size = New-Object System.Drawing.Size(80, 22)
 $btnBrowseUtil.BackColor = [System.Drawing.Color]::LightGray
 $btnBrowseUtil.ForeColor = [System.Drawing.Color]::Black
@@ -89,24 +121,21 @@ $btnBrowseUtil.add_Click({
         $txtIntuneUtil.Text = $ofd.FileName
     }
 })
-$configForm.Controls.Add($btnBrowseUtil)
+$sccmPanel.Controls.Add($btnBrowseUtil)
 
-$lblTenantID = Add-Label "Entra Tenant ID:" 170
-$txtTenantID = Add-TextBox 170
+$intunePanel = New-Object System.Windows.Forms.Panel
+$intunePanel.Size = New-Object System.Drawing.Size(480, 130)
+$configForm.Controls.Add($intunePanel)
 
-$lblClientID = Add-Label "App Registration Client ID (Default: Native MS Graph CLI):" 220
-$txtClientID = Add-TextBox 220
+$lblTenantID = Add-Label "Entra Tenant ID:" 0 $intunePanel
+$txtTenantID = Add-TextBox 0 440 $intunePanel
+
+$lblClientID = Add-Label "App Registration Client ID (Default: Native MS Graph CLI):" 50 $intunePanel
+$txtClientID = Add-TextBox 50 440 $intunePanel
 $txtClientID.Text = "14d82eec-204b-4c2f-b7e8-296a70dab67e"
 
-$chkAutoUpload = New-Object System.Windows.Forms.CheckBox
-$chkAutoUpload.Text = "Auto-Upload to Intune via MS Graph"
-$chkAutoUpload.Location = New-Object System.Drawing.Point(20, 260)
-$chkAutoUpload.Size = New-Object System.Drawing.Size(440, 20)
-$chkAutoUpload.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
-$configForm.Controls.Add($chkAutoUpload)
-
 $lblModuleStatus = New-Object System.Windows.Forms.Label
-$lblModuleStatus.Location = New-Object System.Drawing.Point(20, 290)
+$lblModuleStatus.Location = New-Object System.Drawing.Point(20, 100)
 $lblModuleStatus.Size = New-Object System.Drawing.Size(260, 20)
 $lblModuleStatus.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
 if (Get-Module -ListAvailable -Name IntuneWin32App) {
@@ -116,11 +145,11 @@ if (Get-Module -ListAvailable -Name IntuneWin32App) {
     $lblModuleStatus.Text = "IntuneWin32App Module: Not Installed"
     $lblModuleStatus.ForeColor = [System.Drawing.Color]::LightCoral
 }
-$configForm.Controls.Add($lblModuleStatus)
+$intunePanel.Controls.Add($lblModuleStatus)
 
 $btnInstallModule = New-Object System.Windows.Forms.Button
 $btnInstallModule.Text = "Install Module"
-$btnInstallModule.Location = New-Object System.Drawing.Point(290, 285)
+$btnInstallModule.Location = New-Object System.Drawing.Point(290, 95)
 $btnInstallModule.Size = New-Object System.Drawing.Size(100, 25)
 $btnInstallModule.BackColor = [System.Drawing.Color]::LightGray
 $btnInstallModule.ForeColor = [System.Drawing.Color]::Black
@@ -150,41 +179,66 @@ $btnInstallModule.add_Click({
         [System.Windows.Forms.Application]::DoEvents()
     }
 })
-$configForm.Controls.Add($btnInstallModule)
+$intunePanel.Controls.Add($btnInstallModule)
 
-# Dynamic UI default visibility
-$lblTenantID.Visible = $false
-$txtTenantID.Visible = $false
-$lblClientID.Visible = $false
-$txtClientID.Visible = $false
-$lblModuleStatus.Visible = $false
-$btnInstallModule.Visible = $false
+$uploadPanel = New-Object System.Windows.Forms.Panel
+$uploadPanel.Size = New-Object System.Drawing.Size(480, 60)
+$configForm.Controls.Add($uploadPanel)
 
-$chkAutoUpload.add_CheckedChanged({
-    if ($chkAutoUpload.Checked) {
-        $lblTenantID.Visible = $true
-        $txtTenantID.Visible = $true
-        $lblClientID.Visible = $true
-        $txtClientID.Visible = $true
-        $lblModuleStatus.Visible = $true
-        $btnInstallModule.Visible = $true
-
-        $lblOutputDir.Visible = $false
-        $txtOutputDir.Visible = $false
-        $btnBrowseOut.Visible = $false
-    } else {
-        $lblTenantID.Visible = $false
-        $txtTenantID.Visible = $false
-        $lblClientID.Visible = $false
-        $txtClientID.Visible = $false
-        $lblModuleStatus.Visible = $false
-        $btnInstallModule.Visible = $false
-
-        $lblOutputDir.Visible = $true
-        $txtOutputDir.Visible = $true
-        $btnBrowseOut.Visible = $true
+Add-Label "Existing .intunewin Package:" 0 $uploadPanel | Out-Null
+$txtUploadFile = Add-TextBox 0 350 $uploadPanel
+$btnBrowseUpload = New-Object System.Windows.Forms.Button
+$btnBrowseUpload.Text = "Browse"
+$btnBrowseUpload.Location = New-Object System.Drawing.Point(380, 20)
+$btnBrowseUpload.Size = New-Object System.Drawing.Size(80, 22)
+$btnBrowseUpload.BackColor = [System.Drawing.Color]::LightGray
+$btnBrowseUpload.ForeColor = [System.Drawing.Color]::Black
+$btnBrowseUpload.add_Click({
+    $ofd = New-Object System.Windows.Forms.OpenFileDialog
+    $ofd.Filter = "IntuneWin files (*.intunewin)|*.intunewin|All files (*.*)|*.*"
+    if ($ofd.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+        $txtUploadFile.Text = $ofd.FileName
     }
 })
+$uploadPanel.Controls.Add($btnBrowseUpload)
+
+function Update-UILayout {
+    $currentY = 130 # Start below Mode GroupBox
+
+    if ($rbMode1.Checked) {
+        $sccmPanel.Visible = $true
+        $sccmPanel.Location = New-Object System.Drawing.Point(0, $currentY)
+        $currentY += $sccmPanel.Height
+        $intunePanel.Visible = $false
+        $uploadPanel.Visible = $false
+    } elseif ($rbMode2.Checked) {
+        $sccmPanel.Visible = $true
+        $sccmPanel.Location = New-Object System.Drawing.Point(0, $currentY)
+        $currentY += $sccmPanel.Height
+        $intunePanel.Visible = $true
+        $intunePanel.Location = New-Object System.Drawing.Point(0, $currentY)
+        $currentY += $intunePanel.Height + 20
+        $uploadPanel.Visible = $false
+    } elseif ($rbMode3.Checked) {
+        $sccmPanel.Visible = $false
+        $uploadPanel.Visible = $true
+        $uploadPanel.Location = New-Object System.Drawing.Point(0, $currentY)
+        $currentY += $uploadPanel.Height
+        $intunePanel.Visible = $true
+        $intunePanel.Location = New-Object System.Drawing.Point(0, $currentY)
+        $currentY += $intunePanel.Height + 20
+    }
+
+    $btnInit.Location = New-Object System.Drawing.Point(20, $currentY)
+    $configForm.Height = $currentY + 100
+}
+
+$rbMode1.add_CheckedChanged({ Update-UILayout })
+$rbMode2.add_CheckedChanged({ Update-UILayout })
+$rbMode3.add_CheckedChanged({ Update-UILayout })
+
+Update-UILayout
+
 
 $btnInit = New-Object System.Windows.Forms.Button
 $btnInit.Text = "Initialize Connection"
@@ -196,35 +250,42 @@ $btnInit.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.F
 
 $script:ConfigValid = $false
 $btnInit.add_Click({
-    if ([string]::IsNullOrWhiteSpace($txtSiteCode.Text) -or
-        [string]::IsNullOrWhiteSpace($txtIntuneUtil.Text)) {
-        [System.Windows.Forms.MessageBox]::Show("Please fill out Site Code and IntuneWinAppUtil path.", "Validation Error", 0, 16)
-        return
+    if ($rbMode1.Checked -or $rbMode2.Checked) {
+        if ([string]::IsNullOrWhiteSpace($txtSiteCode.Text) -or
+            [string]::IsNullOrWhiteSpace($txtIntuneUtil.Text) -or
+            [string]::IsNullOrWhiteSpace($txtOutputDir.Text)) {
+            [System.Windows.Forms.MessageBox]::Show("Please fill out Site Code, Output Directory, and IntuneWinAppUtil path.", "Validation Error", 0, 16)
+            return
+        }
     }
-    if ($chkAutoUpload.Checked) {
+
+    if ($rbMode3.Checked) {
+        if ([string]::IsNullOrWhiteSpace($txtUploadFile.Text)) {
+            [System.Windows.Forms.MessageBox]::Show("Please select an existing .intunewin package to upload.", "Validation Error", 0, 16)
+            return
+        }
+    }
+
+    if ($rbMode2.Checked -or $rbMode3.Checked) {
         if ([string]::IsNullOrWhiteSpace($txtTenantID.Text) -or [string]::IsNullOrWhiteSpace($txtClientID.Text)) {
-            [System.Windows.Forms.MessageBox]::Show("Please provide Tenant ID and Client ID for auto-upload.", "Validation Error", 0, 16)
+            [System.Windows.Forms.MessageBox]::Show("Please provide Tenant ID and Client ID for Intune operations.", "Validation Error", 0, 16)
             return
         }
         if (-not (Get-Module -ListAvailable -Name IntuneWin32App)) {
             [System.Windows.Forms.MessageBox]::Show("IntuneWin32App module is not installed. Please install it first using the 'Install Module' button.", "Module Missing", 0, 48)
             return
         }
-    } else {
-        if ([string]::IsNullOrWhiteSpace($txtOutputDir.Text)) {
-            [System.Windows.Forms.MessageBox]::Show("Please fill out Output Directory.", "Validation Error", 0, 16)
-            return
-        }
+        Import-Module IntuneWin32App -ErrorAction SilentlyContinue
     }
 
+    $script:OpMode = if ($rbMode1.Checked) { 1 } elseif ($rbMode2.Checked) { 2 } else { 3 }
     $script:SiteCode = $txtSiteCode.Text
     $script:OutputDirectory = $txtOutputDir.Text
     $script:IntuneWinUtilPath = $txtIntuneUtil.Text
     $script:TenantID = $txtTenantID.Text
     $script:ClientID = $txtClientID.Text
-    $script:AutoUpload = $chkAutoUpload.Checked
-
-    Import-Module IntuneWin32App -ErrorAction SilentlyContinue
+    $script:UploadFile = $txtUploadFile.Text
+    $script:AutoUpload = $rbMode2.Checked
 
     $script:ConfigValid = $true
     $configForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
@@ -233,7 +294,94 @@ $btnInit.add_Click({
 $configForm.Controls.Add($btnInit)
 
 $configForm.ShowDialog() | Out-Null
+
 if (-not $script:ConfigValid) { exit }
+
+if ($script:OpMode -eq 3) {
+    if (-not (Test-Path $script:UploadFile)) {
+        [System.Windows.Forms.MessageBox]::Show("Selected .intunewin file does not exist.", "Error", 0, 16) | Out-Null
+        exit
+    }
+
+    $fileDir = Split-Path $script:UploadFile -Parent
+    $fileNameWithoutExt = [System.IO.Path]::GetFileNameWithoutExtension($script:UploadFile)
+
+    # Look for matching json
+    $jsonPath = Join-Path $fileDir "$fileNameWithoutExt`_Metadata.json"
+    if (-not (Test-Path $jsonPath)) {
+        $jsonPath = Join-Path $fileDir "$fileNameWithoutExt.json"
+    }
+
+    if (-not (Test-Path $jsonPath)) {
+        [System.Windows.Forms.MessageBox]::Show("Could not find matching metadata JSON file in the same directory (`"$fileNameWithoutExt`_Metadata.json`" or `"$fileNameWithoutExt.json`").", "Missing Metadata", 0, 16) | Out-Null
+        exit
+    }
+
+    $metadata = Get-Content -Path $jsonPath -Raw | ConvertFrom-Json
+
+    # Progress UI
+    $formProgress = New-Object System.Windows.Forms.Form
+    $formProgress.Text = "Uploading Existing Package"
+    $formProgress.Size = New-Object System.Drawing.Size(500, 200)
+    $formProgress.StartPosition = "CenterScreen"
+    $formProgress.FormBorderStyle = 'FixedDialog'
+    $formProgress.MaximizeBox = $false
+    $formProgress.BackColor = [System.Drawing.Color]::SlateGray
+    $formProgress.ForeColor = [System.Drawing.Color]::White
+
+    $lblProg = New-Object System.Windows.Forms.Label
+    $lblProg.Text = "Connecting to MS Graph..."
+    $lblProg.Location = New-Object System.Drawing.Point(20, 20)
+    $lblProg.AutoSize = $true
+    $lblProg.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+    $formProgress.Controls.Add($lblProg)
+
+    $txtLog = New-Object System.Windows.Forms.TextBox
+    $txtLog.Multiline = $true
+    $txtLog.ReadOnly = $true
+    $txtLog.ScrollBars = "Vertical"
+    $txtLog.Location = New-Object System.Drawing.Point(20, 50)
+    $txtLog.Size = New-Object System.Drawing.Size(440, 90)
+    $txtLog.BackColor = [System.Drawing.Color]::Black
+    $txtLog.ForeColor = [System.Drawing.Color]::LightGreen
+    $formProgress.Controls.Add($txtLog)
+
+    $formProgress.Show()
+    [System.Windows.Forms.Application]::DoEvents()
+
+    function Write-LogUI_Upload {
+        param([string]$Message)
+        $txtLog.AppendText("$Message`r`n")
+        $txtLog.SelectionStart = $txtLog.Text.Length
+        $txtLog.ScrollToCaret()
+        [System.Windows.Forms.Application]::DoEvents()
+    }
+
+    try {
+        Write-LogUI_Upload "Authenticating to Intune via Graph..."
+        Connect-MSIntuneGraph -TenantId $script:TenantID -ClientId $script:ClientID -ErrorAction Stop
+
+        Write-LogUI_Upload "Uploading package to Intune..."
+        Add-IntuneWin32App -FilePath $script:UploadFile `
+                           -DisplayName $metadata.Name `
+                           -Description $metadata.Description `
+                           -Publisher $metadata.Developer `
+                           -InstallCommandLine $metadata.InstallCommand `
+                           -UninstallCommandLine $metadata.UninstallCommand `
+                           -InformationUrl "https://example.com" `
+                           -ErrorAction Stop
+
+        Write-LogUI_Upload "Upload Complete!"
+        [System.Windows.Forms.MessageBox]::Show("Successfully uploaded $($metadata.Name) to Intune.", "Upload Complete", 0, 64) | Out-Null
+    } catch {
+        Write-LogUI_Upload "[ERROR] Upload failed: $_"
+        [System.Windows.Forms.MessageBox]::Show("Failed to upload package.`n`nError: $_", "Upload Error", 0, 16) | Out-Null
+    } finally {
+        $formProgress.Close()
+        exit
+    }
+}
+
 
 if (-not (Test-Path $OutputDirectory)) {
     New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
