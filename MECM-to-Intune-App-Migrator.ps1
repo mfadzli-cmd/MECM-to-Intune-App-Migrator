@@ -13,6 +13,58 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 # ==============================================================================
+# HELPER: JSON PREVIEW FORM
+# ==============================================================================
+function Show-JsonPreviewForm {
+    param([string]$JsonContent)
+
+    $previewForm = New-Object System.Windows.Forms.Form
+    $previewForm.Text = "JSON Metadata Preview"
+    $previewForm.Size = New-Object System.Drawing.Size(600, 500)
+    $previewForm.StartPosition = "CenterScreen"
+    $previewForm.BackColor = [System.Drawing.Color]::SlateGray
+    $previewForm.ForeColor = [System.Drawing.Color]::White
+
+    $txtPreview = New-Object System.Windows.Forms.TextBox
+    $txtPreview.Multiline = $true
+    $txtPreview.ReadOnly = $true
+    $txtPreview.ScrollBars = "Vertical"
+    $txtPreview.Text = $JsonContent
+    $txtPreview.Location = New-Object System.Drawing.Point(10, 10)
+    $txtPreview.Size = New-Object System.Drawing.Size(560, 380)
+    $txtPreview.BackColor = [System.Drawing.Color]::FromArgb(45, 45, 48)
+    $txtPreview.ForeColor = [System.Drawing.Color]::LightGray
+    $txtPreview.Font = New-Object System.Drawing.Font("Consolas", 10)
+    $previewForm.Controls.Add($txtPreview)
+
+    $btnConfirm = New-Object System.Windows.Forms.Button
+    $btnConfirm.Text = "Confirm Upload"
+    $btnConfirm.Location = New-Object System.Drawing.Point(180, 410)
+    $btnConfirm.Size = New-Object System.Drawing.Size(120, 30)
+    $btnConfirm.BackColor = [System.Drawing.Color]::LightGreen
+    $btnConfirm.ForeColor = [System.Drawing.Color]::Black
+    $btnConfirm.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $btnConfirm.DialogResult = [System.Windows.Forms.DialogResult]::OK
+    $previewForm.Controls.Add($btnConfirm)
+
+    $btnCancel = New-Object System.Windows.Forms.Button
+    $btnCancel.Text = "Cancel"
+    $btnCancel.Location = New-Object System.Drawing.Point(310, 410)
+    $btnCancel.Size = New-Object System.Drawing.Size(100, 30)
+    $btnCancel.BackColor = [System.Drawing.Color]::LightCoral
+    $btnCancel.ForeColor = [System.Drawing.Color]::Black
+    $btnCancel.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $btnCancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+    $previewForm.Controls.Add($btnCancel)
+
+    $previewForm.AcceptButton = $btnConfirm
+    $previewForm.CancelButton = $btnCancel
+
+    $result = $previewForm.ShowDialog()
+    return ($result -eq [System.Windows.Forms.DialogResult]::OK)
+}
+
+# ==============================================================================
 # 2. CONFIGURATION GUI REFACTOR
 # ==============================================================================
 [System.Windows.Forms.Application]::EnableVisualStyles()
@@ -25,6 +77,8 @@ $configForm.FormBorderStyle = 'FixedDialog'
 $configForm.MaximizeBox = $false
 $configForm.BackColor = [System.Drawing.Color]::SlateGray
 $configForm.ForeColor = [System.Drawing.Color]::White
+
+$ToolTip = New-Object System.Windows.Forms.ToolTip
 
 # Helper function to add controls
 function Add-Label ($Text, $Y, $ParentControl = $configForm) {
@@ -57,14 +111,14 @@ $modeGroup.ForeColor = [System.Drawing.Color]::White
 $configForm.Controls.Add($modeGroup)
 
 $rbMode1 = New-Object System.Windows.Forms.RadioButton
-$rbMode1.Text = "Extract & Package Locally (Air-gapped)"
+$rbMode1.Text = "Extract and Package Locally (Air-gapped)"
 $rbMode1.Location = New-Object System.Drawing.Point(20, 20)
 $rbMode1.Size = New-Object System.Drawing.Size(400, 20)
 $rbMode1.Checked = $true
 $modeGroup.Controls.Add($rbMode1)
 
 $rbMode2 = New-Object System.Windows.Forms.RadioButton
-$rbMode2.Text = "Extract & Auto-Upload to Intune"
+$rbMode2.Text = "Extract and Auto-Upload to Intune"
 $rbMode2.Location = New-Object System.Drawing.Point(20, 45)
 $rbMode2.Size = New-Object System.Drawing.Size(400, 20)
 $modeGroup.Controls.Add($rbMode2)
@@ -79,7 +133,8 @@ $sccmPanel = New-Object System.Windows.Forms.Panel
 $sccmPanel.Size = New-Object System.Drawing.Size(480, 160)
 $configForm.Controls.Add($sccmPanel)
 
-Add-Label "SCCM Site Code:" 0 $sccmPanel | Out-Null
+$lblSiteCode = Add-Label "SCCM Site Code [?]:" 0 $sccmPanel
+$ToolTip.SetToolTip($lblSiteCode, 'The 3-character site code for your MECM/SCCM environment.')
 $txtSiteCode = Add-TextBox 0 440 $sccmPanel
 
 # Auto-detect SCCM Site Code
@@ -90,7 +145,8 @@ try {
     }
 } catch { }
 
-$lblOutputDir = Add-Label "Output Directory:" 50 $sccmPanel
+$lblOutputDir = Add-Label "Output Directory [?]:" 50 $sccmPanel
+$ToolTip.SetToolTip($lblOutputDir, 'The local folder where the .intunewin and .json files will be saved.')
 $txtOutputDir = Add-TextBox 50 350 $sccmPanel
 $btnBrowseOut = New-Object System.Windows.Forms.Button
 $btnBrowseOut.Text = "Browse"
@@ -131,10 +187,12 @@ $intunePanel = New-Object System.Windows.Forms.Panel
 $intunePanel.Size = New-Object System.Drawing.Size(480, 130)
 $configForm.Controls.Add($intunePanel)
 
-$lblTenantID = Add-Label "Entra Tenant ID:" 0 $intunePanel
+$lblTenantID = Add-Label "Entra Tenant ID [?]:" 0 $intunePanel
+$ToolTip.SetToolTip($lblTenantID, 'Your primary Azure AD / Entra domain (e.g., contoso.onmicrosoft.com).')
 $txtTenantID = Add-TextBox 0 440 $intunePanel
 
-$lblClientID = Add-Label "App Registration Client ID (Default: Native MS Graph CLI):" 50 $intunePanel
+$lblClientID = Add-Label "App Registration Client ID (Default: Native MS Graph CLI) [?]:" 50 $intunePanel
+$ToolTip.SetToolTip($lblClientID, 'The Application ID with MS Graph DeviceManagement privileges.')
 $txtClientID = Add-TextBox 50 440 $intunePanel
 $txtClientID.Text = "14d82eec-204b-4c2f-b7e8-296a70dab67e"
 
@@ -364,6 +422,13 @@ if ($script:OpMode -eq 3) {
     }
 
     try {
+        $jsonString = $metadata | ConvertTo-Json -Depth 10
+        $confirm = Show-JsonPreviewForm -JsonContent $jsonString
+        if (-not $confirm) {
+            Write-LogUI_Upload "Upload cancelled by user."
+            return
+        }
+
         Write-LogUI_Upload "Authenticating to Intune via Graph..."
         Connect-MSIntuneGraph -TenantId $script:TenantID -ClientId $script:ClientID -ErrorAction Stop
 
@@ -945,6 +1010,14 @@ foreach ($selApp in $selectedApps) {
     if ($AutoUpload -and $Process.ExitCode -eq 0 -and (Test-Path $GeneratedFile)) {
         $lblStatus.Text = "Uploading directly to Intune via Graph..."
         [System.Windows.Forms.Application]::DoEvents()
+
+        $jsonString = $MetadataObj | ConvertTo-Json -Depth 10
+        $confirm = Show-JsonPreviewForm -JsonContent $jsonString
+
+        if (-not $confirm) {
+            Write-LogUI " -> Upload cancelled by user. Files left intact."
+            continue
+        }
 
         Write-LogUI " -> Uploading $safeAppName to Intune..."
         try {
